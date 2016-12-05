@@ -28,7 +28,7 @@ function Strategy(options, verify) {
     this.useSaml = options.useSaml || false;
     this.parsed = url.parse(this.ssoBase);
     if (options.httpsCA) {
-        this.httpsCA = fs.readFileSync(this.httpsCA);
+        this.httpsCA = fs.readFileSync(options.httpsCA);
     }
     if (this.parsed.protocol === 'http:') {
         this.client = http;
