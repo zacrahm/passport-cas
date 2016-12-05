@@ -9,7 +9,8 @@ var _ = require('underscore'),
     processors = require('xml2js/lib/processors'),
     passport = require('passport'),
     uuid = require('node-uuid'),
-    util = require('util');
+    util = require('util'),
+    fs = require('fs');
 
 function Strategy(options, verify) {
     if (typeof options == 'function') {
@@ -26,6 +27,9 @@ function Strategy(options, verify) {
     this.serviceURL = options.serviceURL;
     this.useSaml = options.useSaml || false;
     this.parsed = url.parse(this.ssoBase);
+    if (options.httpsCA) {
+        this.httpsCA = fs.readFileSync(this.httpsCA);
+    }
     if (this.parsed.protocol === 'http:') {
         this.client = http;
     } else {
@@ -200,7 +204,7 @@ Strategy.prototype.authenticate = function (req, options) {
         var requestId = uuid.v4();
         var issueInstant = new Date().toISOString();
         var soapEnvelope = util.format('<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"><SOAP-ENV:Header/><SOAP-ENV:Body><samlp:Request xmlns:samlp="urn:oasis:names:tc:SAML:1.0:protocol" MajorVersion="1" MinorVersion="1" RequestID="%s" IssueInstant="%s"><samlp:AssertionArtifact>%s</samlp:AssertionArtifact></samlp:Request></SOAP-ENV:Body></SOAP-ENV:Envelope>', requestId, issueInstant, ticket);
-        var request = this.client.request({
+        var requestOptions = {
             host: this.parsed.hostname,
             port: this.parsed.port,
             method: 'POST',
@@ -210,7 +214,9 @@ Strategy.prototype.authenticate = function (req, options) {
                     'TARGET': service
                 }
             })
-        }, _handleResponse);
+        };
+        if (this.httpsCA) requestOptions.ca = this.httpsCA;
+        var request = this.client.request(requestOptions, _handleResponse);
 
         request.on('error', function (e) {
             return self.fail(new Error(e));
